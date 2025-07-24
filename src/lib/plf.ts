@@ -218,6 +218,7 @@ export class PLF {
       title: config.title,
       type: 'collapse',
       collapsed: config.collapsed || false,
+      columnWidth: (config as any).columnWidth,
       components: [],
       add: function(components: any | any[]) {
         if (Array.isArray(components)) {
@@ -233,6 +234,7 @@ export class PLF {
     return {
       type: 'DataGrid',
       key: config.id,
+      columnWidth: (config as any).columnWidth,
       title: config.title,
       id: config.id,
       columns: config.detail,
