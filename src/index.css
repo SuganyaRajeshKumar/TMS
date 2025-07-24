@@ -1,0 +1,9 @@
+@import './tailwind.css';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Nunito+Sans:wght@600;700&display=swap');
+body {
+  font-family: 'Nunito Sans','Inter', 'Segoe UI', 'Roboto',  Arial, sans-serif !important;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: #F9FAFB !important;
+}
