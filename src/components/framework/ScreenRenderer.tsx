@@ -57,6 +57,7 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             value={localFormData[component.id] || ''}
             onChange={(value: any) => onFormChange(component.id, value)}
             onChangeImmediate={(value: any) => handleImmediateChange(component.id, value)}
+            onEnter={(value: any) => onFormChange(component.id, value)}
             mandatory={component.mandatory}
             helpButton={component.helpButton}
             onHelpClick={component.helpButton ? () => onHelpClick(component.hlpLinkID || component.id) : undefined}
@@ -90,6 +91,7 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             id={component.id}
             columns={component.columns}
             data={gridData[component.id] || []}
+            stores={stores}
             visibleRows={component.visibleRows}
             readOnly={component.readOnly}
             removeAddDelete={component.removeAddDelete}
@@ -118,17 +120,31 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({
   };
 
   const renderSection = (section: any, index: number) => {
-    const lgCols = `lg:grid-cols-${plf.columns}`;
+    const getGridCols = (cols: number) => {
+      switch (cols) {
+        case 1: return 'grid-cols-1';
+        case 2: return 'grid-cols-1 md:grid-cols-2';
+        case 3: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+        case 4: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4';
+        case 5: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-5';
+        case 6: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-6';
+        default: return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-6';
+      }
+    };
+
     if (section.type === 'section' || section.type === 'collapse') {
+      const sectionWidth = section.columnWidth ? { width: `${section.columnWidth * 100}%` } : {};
+      
       return (
         <ScreenSection
           key={index}
           title={section.title}
           type={section.type}
           collapsed={section.collapsed}
+          style={sectionWidth}
         >
           {section.type === 'section' ? (
-           <div className={`grid grid-cols-1 md:grid-cols-2 ${lgCols} gap-4`}>
+           <div className={`grid ${getGridCols(plf.columns)} gap-4`}>
               {section.components.map(renderComponent)}
             </div>
           ) : (

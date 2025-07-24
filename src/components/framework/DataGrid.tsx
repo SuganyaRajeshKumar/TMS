@@ -170,6 +170,8 @@ const DataGrid: React.FC<DataGridProps> = ({
 
     switch (column.editControl) {
       case 'combo':
+        // Get options from stores based on storeId
+        const comboOptions = stores[column.storeId] || [];
         return (
           <select
             value={value}
@@ -177,7 +179,11 @@ const DataGrid: React.FC<DataGridProps> = ({
             className={inputClasses}
           >
             <option value="">Select...</option>
-            {/* Options would be populated from storeId */}
+            {comboOptions.map((option: any) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         );
       
@@ -215,10 +221,15 @@ const DataGrid: React.FC<DataGridProps> = ({
     }
   };
 
-  const gridStyle = columnWidth ? { width: `${columnWidth * 100}%` } : {};
+  const getGridStyle = () => {
+    if (columnWidth) {
+      return { width: `${columnWidth * 100}%` };
+    }
+    return {};
+  };
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 ${className}`} style={gridStyle}>
+    <div className={`bg-white rounded-lg border border-gray-200 ${className}`} style={getGridStyle()}>
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         {!readOnly && !removeAddDelete && (
@@ -319,4 +330,12 @@ const DataGrid: React.FC<DataGridProps> = ({
   );
 };
 
-export default DataGrid;
+interface DataGridWithStoresProps extends DataGridProps {
+  stores?: Record<string, any[]>;
+}
+
+const DataGridWithStores: React.FC<DataGridWithStoresProps> = (props) => {
+  return <DataGrid {...props} />;
+};
+
+export default DataGridWithStores;

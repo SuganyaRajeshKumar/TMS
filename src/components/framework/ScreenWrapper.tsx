@@ -2,8 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PlfTransScreen } from '../../lib/plfTransScreen';
 import Toolbar from './Toolbar';
 import ScreenRenderer from './ScreenRenderer';
-import JourneyPlanHelp from '../help/JourneyPlanHelp';
 import { useLocation } from 'react-router-dom';
+
+// Dynamic help screen imports
+const getHelpScreen = (screenPath: string) => {
+  switch (screenPath) {
+    case 'journey_management.JourneyPlanHelp':
+      return import('../../view/journey_management/JourneyPlanHelp').then(module => module.JourneyPlanHelpScreen);
+    case 'jm_master.EmployeeHelp':
+      // Add other help screens as needed
+      return null;
+    default:
+      return null;
+  }
+};
 
 interface ScreenWrapperProps {
   screenClass: new () => PlfTransScreen;
@@ -15,9 +27,16 @@ const ScreenWrapper: React.FC<ScreenWrapperProps> = ({ screenClass }) => {
   const [stores, setStores] = useState<Record<string, any[]>>({});
   const [gridData, setGridData] = useState<Record<string, any[]>>({});
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [helpScreen, setHelpScreen] = useState<{ isOpen: boolean; helpId: string }>({ 
+  const [helpScreen, setHelpScreen] = useState<{ 
+    isOpen: boolean; 
+    helpId: string;
+    helpConfig: any;
+    HelpComponent: any;
+  }>({ 
     isOpen: false, 
-    helpId: ''
+    helpId: '',
+    helpConfig: null,
+    HelpComponent: null
   });
 const onLoadCalledRef = useRef(false);
 const navigate = useNavigate();
@@ -56,7 +75,16 @@ useEffect(() => {
 
   const handleFormChange = (field: string, value: any) => {
     //console.log('ScreenWrapper: Form change', field, value);
-    screen.handleFieldChange(field, value);
+    // Check if this is an onenter event
+    const handler = screen.eventHandlers.find(
+      h => h.controlid === field && h.tasktype === 'onenter'
+    );
+    
+    if (handler) {
+      screen.executeEventHandler(handler);
+    } else {
+      screen.handleFieldChange(field, value);
+    }
   };
 
   const handleToolbarAction = (action: string) => {
@@ -74,39 +102,54 @@ useEffect(() => {
     screen.handleButtonClick(buttonId);
   };
 
-  const handleHelpClick = (fieldId: string) => {
+  const handleHelpClick = async (fieldId: string) => {
     //console.log('ScreenWrapper: Help click', fieldId);
     
-    // Map field IDs to help screen types
-    const helpScreenMap: Record<string, string> = {
-      'strJourneyPlanNo': 'jpno',
-      'jpno': 'jpno'
-    };
+    // Get help configuration from screen's hlpLinks
+    const helpConfig = screen.hlpLinks[fieldId];
+    if (!helpConfig) {
+      console.warn(`No help configuration found for field: ${fieldId}`);
+      return;
+    }
     
-    const helpType = helpScreenMap[fieldId] || fieldId;
-    //console.log('ScreenWrapper: Opening help screen for', helpType);
+    console.log('ScreenWrapper: Opening help screen for', fieldId, helpConfig);
     
-    if (helpType === 'jpno') {
-      setHelpScreen({ 
-        isOpen: true, 
-        helpId: helpType
-      });
+    // Load the help screen component dynamically
+    try {
+      const HelpScreenClass = await getHelpScreen(helpConfig.hlpScreen);
+      if (HelpScreenClass) {
+        setHelpScreen({ 
+          isOpen: true, 
+          helpId: fieldId,
+          helpConfig: helpConfig,
+          HelpComponent: HelpScreenClass
+        });
+      }
+    } catch (error) {
+      console.error('Error loading help screen:', error);
     }
   };
 
   const handleHelpClose = () => {
     //console.log('ScreenWrapper: Closing help screen');
-    setHelpScreen({ isOpen: false, helpId: '' });
+    setHelpScreen({ 
+      isOpen: false, 
+      helpId: '',
+      helpConfig: null,
+      HelpComponent: null
+    });
   };
 
   const handleHelpSelect = (selectedData: any) => {
     //console.log('ScreenWrapper: Help select', selectedData);
-    if (helpScreen.helpId && selectedData) {
-      // Map selected data to form fields based on help screen type
-      if (helpScreen.helpId === 'jpno' && selectedData.JOURNEY_PLAN_NO) {
-        screen.setFieldValue('strJourneyPlanNo', selectedData.JOURNEY_PLAN_NO);
-        screen.handleFieldChange('strJourneyPlanNo', selectedData.JOURNEY_PLAN_NO);
-      }
+    if (helpScreen.helpConfig && selectedData) {
+      // Map selected data to form fields based on help configuration
+      helpScreen.helpConfig.receive.forEach((mapping: any) => {
+        if (selectedData[mapping.child]) {
+          screen.setFieldValue(mapping.parent, selectedData[mapping.child]);
+          screen.handleFieldChange(mapping.parent, selectedData[mapping.child]);
+        }
+      });
     }
     handleHelpClose();
   };
@@ -149,6 +192,53 @@ useEffect(() => {
   console.log('ScreenWrapper: Stores', Object.keys(stores));
   console.log('ScreenWrapper: Grid data', gridData);
 
+  // Render help screen dynamically
+  const renderHelpScreen = () => {
+    if (!helpScreen.isOpen || !helpScreen.HelpComponent) return null;
+    
+    const HelpComponent = helpScreen.HelpComponent;
+    const helpInstance = new HelpComponent();
+    
+    // Pass initial values based on send configuration
+    const initialValues: Record<string, any> = {};
+    if (helpScreen.helpConfig.send) {
+      helpScreen.helpConfig.send.forEach((mapping: any) => {
+        if (mapping.direct) {
+          initialValues[mapping.child] = mapping.direct;
+        } else if (mapping.parent) {
+          initialValues[mapping.child] = formData[mapping.parent];
+        }
+      });
+    }
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl w-[90vw] h-[80vh] max-w-7xl flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">{helpInstance.screenName}</h2>
+            <button
+              onClick={handleHelpClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden p-6">
+            <ScreenRenderer
+              sections={helpInstance.ptrMainSection.components}
+              formData={initialValues}
+              stores={{}}
+              gridData={{}}
+              onFormChange={() => {}}
+              onButtonClick={() => {}}
+              onHelpClick={() => {}}
+              onRowDoubleClick={handleHelpSelect}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Header with Screen Name and Links */}
@@ -208,20 +298,13 @@ useEffect(() => {
         />
       )}
 
-      {/* Help Screen Modal */}
-      {helpScreen.isOpen && helpScreen.helpId === 'jpno' && (
-        <JourneyPlanHelp
-          isOpen={helpScreen.isOpen}
-          onClose={handleHelpClose}
-          onSelect={handleHelpSelect}
-          initialValues={{}}
-        />
-      )}
+      {/* Dynamic Help Screen Modal */}
+      {renderHelpScreen()}
     </div>
   );
 };
 
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default ScreenWrapper;

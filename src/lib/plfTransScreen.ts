@@ -101,11 +101,12 @@ export class PlfTransScreen {
     // Update internal form data
     this.setFieldValue(fieldId, value);
 
-    const handler = this.eventHandlers.find(
-      h => h.controlid === fieldId && h.tasktype === 'onenter'
+    // Check for onchange handlers (for combos)
+    const onChangeHandler = this.eventHandlers.find(
+      h => h.controlid === fieldId && h.tasktype === 'onchange'
     );
-    if (handler) {
-      this.executeEventHandler(handler);
+    if (onChangeHandler) {
+      this.executeEventHandler(onChangeHandler);
     }
   }
 

@@ -7,6 +7,7 @@ interface ScreenSectionProps {
   type?: 'section' | 'collapse';
   collapsed?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const ScreenSection: React.FC<ScreenSectionProps> = ({
@@ -14,13 +15,14 @@ const ScreenSection: React.FC<ScreenSectionProps> = ({
   children,
   type = 'section',
   collapsed = false,
-  className = ''
+  className = '',
+  style = {}
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(collapsed);
 
   if (type === 'section') {
     return (
-      <div className={`bg-white rounded-lg border border-gray-200 p-6 ${className}`}>
+      <div className={`bg-white rounded-lg border border-gray-200 p-6 ${className}`} style={style}>
         {title && (
           <h2 className="text-lg font-semibold text-gray-900 mb-6">{title}</h2>
         )}
@@ -30,7 +32,7 @@ const ScreenSection: React.FC<ScreenSectionProps> = ({
   }
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 ${className}`}>
+    <div className={`bg-white rounded-lg border border-gray-200 ${className}`} style={style}>
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"

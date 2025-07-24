@@ -8,6 +8,7 @@ interface FormFieldProps {
   value?: string;
   onChange?: (value: string) => void;
   onChangeImmediate?: (value: string) => void;
+  onEnter?: (value: string) => void;
   options?: { value: string; label: string }[];
   mandatory?: boolean;
   disabled?: boolean;
@@ -44,7 +45,8 @@ const FormField: React.FC<FormFieldProps> = ({
   timeId,
   displayType,
   onDoubleClick,
-  onChangeImmediate
+  onChangeImmediate,
+  onEnter
 }) => {
   const [localValue, setLocalValue] = React.useState(value || '');
   
@@ -53,9 +55,12 @@ const FormField: React.FC<FormFieldProps> = ({
     setLocalValue(value || '');
   }, [value]);
 
-  const handleChange = (newValue: string) => {
+  const handleChange = (newValue: string, immediate = false) => {
     setLocalValue(newValue);
-    onChangeImmediate?.(newValue);
+    
+    if (immediate) {
+      onChangeImmediate?.(newValue);
+    }
     
     // Debounce the main onChange for performance
     const timeoutId = setTimeout(() => {
@@ -65,6 +70,40 @@ const FormField: React.FC<FormFieldProps> = ({
     return () => clearTimeout(timeoutId);
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      onEnter?.(localValue);
+    }
+  };
+
+  const formatDateValue = (dateValue: string) => {
+    if (!dateValue) return '';
+    
+    // If it's already in dd-mm-yyyy format, return as is
+    if (dateValue.match(/^\d{2}-\d{2}-\d{4}$/)) {
+      return dateValue;
+    }
+    
+    // If it's in yyyy-mm-dd format (HTML date input), convert to dd-mm-yyyy
+    if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateValue.split('-');
+      return `${day}-${month}-${year}`;
+    }
+    
+    return dateValue;
+  };
+
+  const convertToInputFormat = (dateValue: string) => {
+    if (!dateValue) return '';
+    
+    // If it's in dd-mm-yyyy format, convert to yyyy-mm-dd for HTML input
+    if (dateValue.match(/^\d{2}-\d{2}-\d{4}$/)) {
+      const [day, month, year] = dateValue.split('-');
+      return `${year}-${month}-${day}`;
+    }
+    
+    return dateValue;
+  };
   const baseInputClasses = "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm";
   const disabledClasses = "bg-gray-50 text-gray-500 cursor-not-allowed";
 
@@ -76,7 +115,7 @@ const FormField: React.FC<FormFieldProps> = ({
       case 'display':
         return (
           <div className={`${baseInputClasses} ${disabledClasses} min-h-[38px] flex items-center`}>
-            {displayType === 'date' && localValue ? new Date(localValue).toLocaleDateString() : (localValue || '-')}
+            {displayType === 'date' && localValue ? formatDateValue(localValue) : (localValue || '-')}
           </div>
         );
       
@@ -85,7 +124,7 @@ const FormField: React.FC<FormFieldProps> = ({
           <select
             id={id}
             value={localValue}
-            onChange={(e) => handleChange(e.target.value)}
+            onChange={(e) => handleChange(e.target.value, true)}
             disabled={disabled}
             className={`${baseInputClasses} ${disabled ? disabledClasses : ''}`}
           >
@@ -104,8 +143,11 @@ const FormField: React.FC<FormFieldProps> = ({
             <input
               type="date"
               id={id}
-              value={localValue}
-              onChange={(e) => handleChange(e.target.value)}
+              value={convertToInputFormat(localValue)}
+              onChange={(e) => {
+                const formattedDate = formatDateValue(e.target.value);
+                handleChange(formattedDate, true);
+              }}
               disabled={disabled}
               className={`${baseInputClasses} ${disabled ? disabledClasses : ''}`}
             />
@@ -120,11 +162,11 @@ const FormField: React.FC<FormFieldProps> = ({
               <input
                 type="date"
                 id={dateId}
-                value={localValue?.split(' ')[0] || ''}
+                value={convertToInputFormat(localValue?.split(' ')[0] || '')}
                 onChange={(e) => {
                   const time = localValue?.split(' ')[1] || '';
-                 
-                  handleChange(`${e.target.value} ${time}`.trim());
+                  const formattedDate = formatDateValue(e.target.value);
+                  handleChange(`${formattedDate} ${time}`.trim(), true);
                 }}
                 disabled={disabled}
                 className={`${baseInputClasses} ${disabled ? disabledClasses : ''}`}
@@ -138,7 +180,7 @@ const FormField: React.FC<FormFieldProps> = ({
                 value={localValue?.split(' ')[1] || ''}
                 onChange={(e) => {
                   const date = localValue?.split(' ')[0] || '';
-                  handleChange(`${date} ${e.target.value}`.trim());
+                  handleChange(`${date} ${e.target.value}`.trim(), true);
                 }}
                 disabled={disabled}
                 className={`${baseInputClasses} ${disabled ? disabledClasses : ''}`}
@@ -154,7 +196,7 @@ const FormField: React.FC<FormFieldProps> = ({
             <input
               type="file"
               id={id}
-              onChange={(e) => handleChange(e.target.files?.[0]?.name || '')}
+              onChange={(e) => handleChange(e.target.files?.[0]?.name || '', true)}
               disabled={disabled}
               className={`${baseInputClasses} ${disabled ? disabledClasses : ''} file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
             />
@@ -170,6 +212,7 @@ const FormField: React.FC<FormFieldProps> = ({
               id={id}
               value={localValue}
               onChange={(e) => handleChange(e.target.value)}
+              onKeyPress={handleKeyPress}
               onDoubleClick={onDoubleClick}
               disabled={disabled}
               placeholder={placeholder}
